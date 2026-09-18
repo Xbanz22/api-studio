@@ -1,0 +1,8 @@
+{
+  "name": "REST API Hub & Studio",
+  "description": "Platform website REST API interaktif dengan live endpoint runner, dokumentasi OpenAPI, generator mock API, API key manager, dan live server metrics.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
