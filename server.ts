@@ -688,7 +688,7 @@ function restoreSystemBackupJSON(backup: any): { success: boolean; restoredCount
 // Persistent Disk Storage Helper
 const PERSISTENT_FILE = path.join(process.cwd(), 'persistent_storage.json');
 
-function savePersistentDataToDisk() {
+async function savePersistentDataToDisk() {
   try {
     const data = {
       version: '2.4.0',
@@ -707,14 +707,42 @@ function savePersistentDataToDisk() {
       globalStats,
       userStats: Array.from(userStatsStore.entries())
     };
+
+    // Save to JSON (backup)
     fs.writeFileSync(PERSISTENT_FILE, JSON.stringify(data, null, 2), 'utf8');
+
+    // Save to MySQL (primary)
+    try {
+      const adapter = require('./db-adapter.cjs');
+      const ok = await adapter.saveAll(data);
+      if (!ok) console.error('[MySQL Save] Failed');
+    } catch (mysqlErr: any) {
+      console.error('[MySQL Save] Error:', mysqlErr.message);
+    }
   } catch (err: any) {
-    console.error('[Persistence Error] Failed to save state to disk:', err.message);
+    console.error('[Persistence Error] Failed to save state:', err.message);
   }
 }
 
-function loadPersistentDataFromDisk() {
+async function loadPersistentDataFromDisk() {
   try {
+    // 1. Coba load dari MySQL dulu
+    try {
+      const adapter = require('./db-adapter.cjs');
+      const mysqlData = await adapter.loadAll();
+      if (mysqlData && mysqlData.users && mysqlData.users.length > 0) {
+        console.log('[MySQL] Loaded', mysqlData.users.length, 'users from MySQL');
+        if (Array.isArray(mysqlData.users)) mysqlData.users.forEach((u: any) => { if (u.email) usersStore.set(u.email.toLowerCase().trim(), u); });
+        if (Array.isArray(mysqlData.apiKeys)) mysqlData.apiKeys.forEach((k: any) => { if (k.key) apiKeys.set(k.key, k); });
+        if (Array.isArray(mysqlData.mockRoutes)) mysqlData.mockRoutes.forEach((m: any) => { if (m.path) mockRoutes.set(m.path, m); });
+        if (Array.isArray(mysqlData.pricingPlans)) mysqlData.pricingPlans.forEach((p: any) => { if (p.id) pricingPlans.set(p.id, p); });
+        return;
+      }
+    } catch (mysqlErr: any) {
+      console.error('[MySQL Load] Failed, fallback to JSON:', mysqlErr.message);
+    }
+
+    // 2. Fallback ke JSON (kode lama)
     if (fs.existsSync(PERSISTENT_FILE)) {
       const fileContent = fs.readFileSync(PERSISTENT_FILE, 'utf8');
       const data = JSON.parse(fileContent);
@@ -1281,11 +1309,9 @@ manualPaymentRequests.set('INV-20260901-8392', {
 });
 
 // Restore saved settings and state from disk if available
-if (fs.existsSync(PERSISTENT_FILE)) {
-  loadPersistentDataFromDisk();
-} else {
-  savePersistentDataToDisk();
-}
+(async () => {
+  await loadPersistentDataFromDisk();
+})();
 
 let geminiClient: GoogleGenAI | null = null;
 function getGemini(): GoogleGenAI | null {
