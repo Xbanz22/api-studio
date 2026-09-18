@@ -1,3 +1,4 @@
+import "dotenv/config";
 import dns from 'node:dns';
 import https from 'node:https';
 import zlib from 'node:zlib';
@@ -1364,7 +1365,7 @@ process.on('unhandledRejection', (reason) => {
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT) || 3000;
 
   // Liveness & Readiness health check endpoint
   app.get('/api/health', (_req, res) => {
