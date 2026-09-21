@@ -1398,6 +1398,12 @@ async function startServer() {
     res.json({ status: 'ok' });
   });
 
+  // Greeting endpoint
+  app.get('/api/greeting', (req, res) => {
+    const name = (req.query.name as string) || 'World';
+    res.json({ message: `Hello, ${name}!` });
+  });
+
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
